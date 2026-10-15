@@ -20,8 +20,8 @@ type Props = {
   onToggleConnection: (conn: ConnectionView) => void;
   onToggleSchema: (connId: string, schema: string) => void;
   onToggleTable: (conn: ConnectionView, table: TableInfo) => void;
-  onSelectTable: (conn: ConnectionView, database: string, table: TableInfo) => void;
-  onOpenTable: (conn: ConnectionView, database: string, table: TableInfo) => void;
+  onSelectTable: (conn: ConnectionView, table: TableInfo) => void;
+  onOpenTable: (conn: ConnectionView, table: TableInfo) => void;
   onConnectionContextMenu: (conn: ConnectionView, x: number, y: number) => void;
   onDisconnect: (conn: ConnectionView) => void;
   onDelete: (conn: ConnectionView) => void;
@@ -251,7 +251,6 @@ export default function ConnectionsSidebar(props: Props) {
     conn: ConnectionView,
     table: TableInfo,
     indent: number,
-    database: string,
     parentKey: string
   ) => {
     const key = `${conn.id}::${table.schema}::${table.name}`;
@@ -265,7 +264,7 @@ export default function ConnectionsSidebar(props: Props) {
           aria-expanded={open}
           title="Click to show columns, indexes and keys · double-click to insert a SELECT"
           onClick={() => {
-            onSelectTable(conn, database, table);
+            onSelectTable(conn, table);
             cancelPendingTableExpand();
             tableClickTimer.current = window.setTimeout(() => {
               tableClickTimer.current = null;
@@ -274,7 +273,7 @@ export default function ConnectionsSidebar(props: Props) {
           }}
           onDoubleClick={() => {
             cancelPendingTableExpand();
-            onOpenTable(conn, database, table);
+            onOpenTable(conn, table);
           }}
         >
           <Chevron open={open} />
@@ -394,7 +393,7 @@ export default function ConnectionsSidebar(props: Props) {
                   {schemaOpen &&
                     tables?.kind === "tables" &&
                     tables.items.map((table) =>
-                      renderTableNode(conn, table, base + 40, schema, key)
+                      renderTableNode(conn, table, base + 40, key)
                     )}
                   {schemaOpen &&
                     tables?.kind === "tables" &&
@@ -417,7 +416,7 @@ export default function ConnectionsSidebar(props: Props) {
         {open && conn.connected && node?.kind === "tables" && (
           <>
             {node.items.map((table) =>
-              renderTableNode(conn, table, base + 36, conn.database, conn.id)
+              renderTableNode(conn, table, base + 36, conn.id)
             )}
             {node.items.length === 0 && (
               <div className="child-hint" style={{ paddingLeft: base + 36 }}>

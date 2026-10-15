@@ -121,7 +121,16 @@ export const quoteIdent = (kind: EngineKind, name: string): string =>
     ? `[${name.replace(/]/g, "]]")}]`
     : `\`${name.replace(/`/g, "``")}\``;
 
-export const selectSnippet = (kind: EngineKind, database: string, table: TableInfo): string =>
-  kind === "mssql"
-    ? `SELECT TOP 200 * FROM ${quoteIdent(kind, database)}.${quoteIdent(kind, table.schema)}.${quoteIdent(kind, table.name)};`
-    : `SELECT * FROM ${quoteIdent(kind, database)}.${quoteIdent(kind, table.name)} LIMIT 200;`;
+/** Single-letter alias for inserted SELECTs (first letter of the table name),
+ *  so `alias.` column completion works right away. */
+const aliasFor = (name: string): string => {
+  const first = name.charAt(0).toLowerCase();
+  return /[a-z]/.test(first) ? first : "t";
+};
+
+export const selectSnippet = (kind: EngineKind, table: TableInfo): string => {
+  const alias = aliasFor(table.name);
+  return kind === "mssql"
+    ? `SELECT TOP 200 ${alias}.* FROM ${quoteIdent(kind, table.schema)}.${quoteIdent(kind, table.name)} ${alias};`
+    : `SELECT ${alias}.* FROM ${quoteIdent(kind, table.name)} ${alias} LIMIT 200;`;
+};

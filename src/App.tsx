@@ -279,7 +279,7 @@ export default function App() {
   );
 
   const selectTable = useCallback(
-    (conn: ConnectionView, _database: string, table: TableInfo) => {
+    (conn: ConnectionView, table: TableInfo) => {
       ensureTab(conn.id);
       setStatus(`${table.name} — click again to show columns, or double-click to insert a SELECT`);
     },
@@ -287,8 +287,8 @@ export default function App() {
   );
 
   const openTable = useCallback(
-    (conn: ConnectionView, database: string, table: TableInfo) => {
-      const snippet = selectSnippet(conn.kind, database, table);
+    (conn: ConnectionView, table: TableInfo) => {
+      const snippet = selectSnippet(conn.kind, table);
       const el = sqlEditorRef.current;
       const activeTabNow = tabs.find((t) => t.id === activeTabId);
       // Prefer the active tab when it belongs to this connection; otherwise

@@ -50,8 +50,13 @@ const ALIAS_STOPWORDS = new Set([
   "SET", "VALUES", "AS", "UNION", "LIMIT", "TOP", "WITH", "CROSS", "OFFSET",
 ]);
 
-/* Includes dots so `table.` / `alias.` reaches the column branch. */
-const TOKEN_RE = /[A-Za-z0-9_$.]*$/;
+/* Identifier atoms accepted in table references: bare words plus
+   `backtick`, "double" and [bracket] quoted names — the snippets the app
+   inserts quote every part, and hand-typed SQL may quote too. */
+const IDENT_ATOM = '(?:[A-Za-z0-9_$]+|`[^`]*`|"[^"]*"|\\[[^\\]]*\\])';
+/* Includes dots so `table.` / `alias.` reaches the column branch; quoted
+   atoms so `[dbo].` / `` `shop`. `` keeps the whole qualifier as one token. */
+const TOKEN_RE = /(?:`[^`]*`|"[^"]*"|\[[^\]]*\]|[A-Za-z0-9_$.])*$/;
 
 /** Clause keywords that put the caret in a column position; FROM/JOIN stay table contexts. */
 const COLUMN_CLAUSES = new Set([
@@ -71,7 +76,10 @@ export function lastClause(sql: string): string | null {
 export function referencedTables(sql: string, tables: TableInfo[]): TableInfo[] {
   const out: TableInfo[] = [];
   const seen = new Set<string>();
-  const re = /(?:\bfrom\b|\bjoin\b)\s+([\w$]+(?:\s*\.\s*[\w$]+)*)/gi;
+  const re = new RegExp(
+    `(?:\\bfrom\\b|\\bjoin\\b)\\s+(${IDENT_ATOM}(?:\\s*\\.\\s*${IDENT_ATOM})*)`,
+    "gi"
+  );
   let match: RegExpExecArray | null;
   while ((match = re.exec(sql))) {
     const leaf = (cleanIdent(match[1]).split(".").pop() ?? "").toLowerCase();
@@ -111,8 +119,10 @@ export function resolveQualifier(
   );
   if (direct) return direct;
 
-  const aliasRe =
-    /(?:\bfrom\b|\bjoin\b)\s+([\w$]+(?:\s*\.\s*[\w$]+)*)\s+(?:as\s+)?([A-Za-z_][\w$]*)/gi;
+  const aliasRe = new RegExp(
+    `(?:\\bfrom\\b|\\bjoin\\b)\\s+(${IDENT_ATOM}(?:\\s*\\.\\s*${IDENT_ATOM})*)\\s+(?:as\\s+)?([A-Za-z_][\\w$]*)`,
+    "gi"
+  );
   let match: RegExpExecArray | null;
   while ((match = aliasRe.exec(before))) {
     if (ALIAS_STOPWORDS.has(match[2].toUpperCase())) continue;
@@ -143,7 +153,7 @@ export function computeSuggestContext(
 
   const dotIndex = token.lastIndexOf(".");
   if (dotIndex >= 0) {
-    const table = resolveQualifier(before, token.slice(0, dotIndex), source.tables);
+    const table = resolveQualifier(value, token.slice(0, dotIndex), source.tables);
     if (!table) return null;
     const word = token.slice(dotIndex + 1).toLowerCase();
     const metas = source.columnMeta(table.schema, table.name) ?? [];
@@ -168,7 +178,9 @@ export function computeSuggestContext(
   const word = token.toLowerCase();
   if (wantsColumns) {
     // Column position: offer the columns of every table named in FROM/JOIN.
-    const refs = referencedTables(before, source.tables);
+    // Scan the whole text, not just what precedes the caret — while editing a
+    // select list (`SELECT Id, Na| FROM customers`) the FROM sits ahead.
+    const refs = referencedTables(value, source.tables);
     const items: SuggestItem[] = [];
     const seen = new Set<string>();
     for (const t of refs) {

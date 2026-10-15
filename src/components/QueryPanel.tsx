@@ -46,6 +46,8 @@ type SuggestState = {
   selected: number;
   top: number;
   left: number;
+  /** Caret the items were computed at; scroll events re-anchor the popup to it. */
+  caret: number;
 };
 
 const EDITOR_HEIGHT_KEY = "sqlnotebook.editorHeight";
@@ -56,6 +58,22 @@ const RESULTS_MIN_HEIGHT = 110;
 const storedEditorHeight = (): number | null => {
   const value = Number(localStorage.getItem(EDITOR_HEIGHT_KEY));
   return Number.isFinite(value) && value >= EDITOR_MIN_HEIGHT ? value : null;
+};
+
+/// Viewport coordinates for the popup under the caret, flipping above the
+/// line when there is not enough room below.
+const popupPosition = (
+  el: HTMLTextAreaElement,
+  caret: number,
+  itemCount: number
+): { top: number; left: number } => {
+  const pos = caretViewportPosition(el, caret);
+  const estimated = Math.min(itemCount, 10) * 21 + 10;
+  let top = pos.top + 20;
+  if (top + estimated > window.innerHeight) {
+    top = Math.max(4, pos.top - estimated - 6);
+  }
+  return { top, left: pos.left };
 };
 
 /// Colored copy of the editor text rendered behind the textarea, whose own
@@ -210,19 +228,15 @@ export default function QueryPanel({
       setSuggest(null);
       return;
     }
-    const pos = caretViewportPosition(el, caret);
-    const estimated = Math.min(context.items.length, 10) * 21 + 10;
-    let top = pos.top + 20;
-    if (top + estimated > window.innerHeight) {
-      top = Math.max(4, pos.top - estimated - 6);
-    }
+    const { top, left } = popupPosition(el, caret, context.items.length);
     setSuggest({
       from: context.from,
       to: context.to,
       items: context.items,
       selected: 0,
       top,
-      left: pos.left,
+      left,
+      caret,
     });
   };
   recomputeRef.current = recompute;
@@ -359,7 +373,17 @@ export default function QueryPanel({
           onKeyDown={editorKeyDown}
           onBlur={() => setSuggest(null)}
           onScroll={() => {
-            setSuggest(null);
+            // The textarea scrolls to keep the caret visible on every
+            // keystroke near the bottom; the popup follows the caret
+            // instead of vanishing (Escape already closed it via state).
+            const el = textareaRef.current;
+            if (el) {
+              setSuggest((s) => {
+                if (!s) return s;
+                const { top, left } = popupPosition(el, s.caret, s.items.length);
+                return { ...s, top, left };
+              });
+            }
             syncHighlightScroll();
           }}
         />

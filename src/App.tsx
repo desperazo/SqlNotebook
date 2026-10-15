@@ -81,6 +81,14 @@ export default function App() {
   // Cursor position to restore after the next sql commit (double-click insert).
   const pendingCursor = useRef<number | null>(null);
 
+  // Errors surface in the status bar AND as a native alert dialog, since the
+  // status bar alone is easy to miss (e.g. failed connections).
+  const notifyError = useCallback((error: unknown) => {
+    const message = errorMessage(error);
+    setStatus(message);
+    void backend.errorAlert(message);
+  }, []);
+
   const refreshConnections = useCallback(async () => {
     setConnections(await backend.listConnections());
   }, []);
@@ -90,9 +98,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    refreshConnections().catch((error) => setStatus(errorMessage(error)));
-    refreshGroups().catch((error) => setStatus(errorMessage(error)));
-  }, [refreshConnections, refreshGroups]);
+    refreshConnections().catch(notifyError);
+    refreshGroups().catch(notifyError);
+  }, [refreshConnections, refreshGroups, notifyError]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
   const activeConnId = activeTab?.connId ?? null;
@@ -110,7 +118,7 @@ export default function App() {
         await refreshGroups();
         setStatus(`Created group "${name}"`);
       } catch (error) {
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [refreshGroups]
@@ -221,7 +229,7 @@ export default function App() {
       try {
         await loadConnectionChildren(conn);
       } catch (error) {
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [ensureTab, expanded, loadConnectionChildren]
@@ -239,7 +247,7 @@ export default function App() {
         const items = await backend.listTables(connId, schema);
         setChildren((prev) => ({ ...prev, [key]: { kind: "tables", items } }));
       } catch (error) {
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [expanded]
@@ -264,7 +272,7 @@ export default function App() {
         );
       } catch (error) {
         collapseKey(key);
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [expanded]
@@ -356,7 +364,7 @@ export default function App() {
         setStatus(`Connected to ${spec.name}`);
       } catch (error) {
         await refreshConnections();
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [dialog, ensureTab, loadConnectionChildren, openNewTab, refreshConnections]
@@ -387,7 +395,7 @@ export default function App() {
         await refreshConnections();
         setStatus(`Disconnected from ${conn.name}`);
       } catch (error) {
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [refreshConnections, removeConnTabs]
@@ -403,7 +411,7 @@ export default function App() {
         await refreshConnections();
         setStatus(`Deleted ${conn.name}`);
       } catch (error) {
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [refreshConnections, removeConnTabs]
@@ -417,7 +425,7 @@ export default function App() {
         await refreshConnections();
         setStatus(group ? `Moved ${conn.name} to group "${group}"` : `Removed ${conn.name} from its group`);
       } catch (error) {
-        setStatus(errorMessage(error));
+        notifyError(error);
       }
     },
     [refreshConnections]
@@ -438,7 +446,7 @@ export default function App() {
       const name = path.split("/").pop() ?? path;
       setStatus(`Opened ${name}`);
     } catch (error) {
-      setStatus(errorMessage(error));
+      notifyError(error);
     }
   }, [activeTabId, tabs]);
 
@@ -455,7 +463,7 @@ export default function App() {
       setTabs((prev) => prev.map((t) => (t.id === tab.id ? { ...t, filePath: path! } : t)));
       setStatus(`Saved ${path.split("/").pop() ?? path}`);
     } catch (error) {
-      setStatus(errorMessage(error));
+      notifyError(error);
     }
   }, [activeTabId, tabs]);
 
@@ -484,6 +492,7 @@ export default function App() {
       const message = errorMessage(error);
       patch({ error: message });
       setStatus(message);
+      void backend.errorAlert(message);
       await refreshConnections();
     } finally {
       patch({ running: false });

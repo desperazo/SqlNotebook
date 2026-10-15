@@ -22,6 +22,7 @@ tokio-util = { version = "0.7.20", features = ["compat"] }
 futures-util = "0.3.34"
 keyring = { version = "3", features = ["apple-native", "windows-native"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-window-state = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.5"

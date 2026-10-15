@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import { open as openFileDialog, save as saveFileDialog } from "@tauri-apps/plugin-dialog";
+import {
+  message as messageDialog,
+  open as openFileDialog,
+  save as saveFileDialog,
+} from "@tauri-apps/plugin-dialog";
 
 export type EngineKind = "mysql" | "mssql";
 
@@ -99,6 +103,7 @@ export const backend = {
   readSqlFile: (path: string) => invoke<string>("read_sql_file", { path }),
   writeSqlFile: (path: string, contents: string) =>
     invoke<void>("write_sql_file", { path, contents }),
+  errorAlert: (text: string) => messageDialog(text, { title: "Sql Notebook", kind: "error" }),
 };
 
 export function errorMessage(error: unknown): string {

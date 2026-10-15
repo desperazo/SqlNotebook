@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Capability for the main window. Filesystem access is not granted here; it goes through the workspace-scoped commands in lib.rs.","local":true,"windows":["main"],"permissions":["core:default","dialog:default"]}}
